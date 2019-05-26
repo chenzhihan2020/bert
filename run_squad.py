@@ -30,7 +30,7 @@ import six
 import tensorflow as tf
 
 flags = tf.flags
-
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 FLAGS = flags.FLAGS
 
 ## Required parameters
@@ -210,7 +210,7 @@ class InputFeatures(object):
                start_position=None,
                end_position=None,
                is_impossible=None):
-    self.unique_id = unique_id
+    self.unique_id = unique_id 
     self.example_index = example_index
     self.doc_span_index = doc_span_index
     self.tokens = tokens
@@ -280,14 +280,15 @@ def read_squad_examples(input_file, is_training):
             #
             # Note that this means for training mode, every example is NOT
             # guaranteed to be preserved.
-            actual_text = " ".join(
-                doc_tokens[start_position:(end_position + 1)])
-            cleaned_answer_text = " ".join(
-                tokenization.whitespace_tokenize(orig_answer_text))
-            if actual_text.find(cleaned_answer_text) == -1:
-              tf.logging.warning("Could not find answer: '%s' vs. '%s'",
-                                 actual_text, cleaned_answer_text)
-              continue
+##            actual_text = " ".join(
+##                doc_tokens[start_position:(end_position + 1)])
+##            cleaned_answer_text = " ".join(
+##                tokenization.whitespace_tokenize(orig_answer_text))
+## not checking things above 
+            ##if actual_text.find(cleaned_answer_text) == -1:
+            ##  tf.logging.warning("Could not find answer: '%s' vs. '%s'",
+            ##                     actual_text, cleaned_answer_text)
+            ##  continue
           else:
             start_position = -1
             end_position = -1
@@ -898,7 +899,8 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
       nbest_json.append(output)
 
     assert len(nbest_json) >= 1
-
+    
+    
     if not FLAGS.version_2_with_negative:
       all_predictions[example.qas_id] = nbest_json[0]["text"]
     else:
