@@ -28,6 +28,7 @@ import optimization
 import tokenization
 import six
 import tensorflow as tf
+import io
 
 flags = tf.flags
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -171,9 +172,11 @@ class SquadExample(object):
     self.qas_id = qas_id
     self.question_text = question_text
     self.doc_tokens = doc_tokens
+## squadexample has multiple answers
     self.orig_answer_text = orig_answer_text
     self.start_position = start_position
     self.end_position = end_position
+## above become list
     self.is_impossible = is_impossible
 
   def __str__(self):
@@ -222,11 +225,24 @@ class InputFeatures(object):
     self.start_position = start_position
     self.end_position = end_position
     self.is_impossible = is_impossible
+##find answer index in document
+def answer_index_in_document(answer_list, document):
 
+    indexs=[]
+    doc=document.lower()
+    for answer_string_in_doc in answer_list:            
+        index = doc.find(answer_string_in_doc.lower())
+        
+        while(index!=-1):
+            indexs.append((answer_string_in_doc.lower(),index))
+            index = doc.find(answer_string_in_doc.lower(),index+1)
+    return indexs
+##
 
+## squadexample has multiple answers
 def read_squad_examples(input_file, is_training):
   """Read a SQuAD json file into a list of SquadExample."""
-  with tf.gfile.Open(input_file, "r") as reader:
+  with io.open(input_file, "r",encoding='utf8') as reader:
     input_data = json.load(reader)["data"]
 
   def is_whitespace(c):
@@ -235,9 +251,19 @@ def read_squad_examples(input_file, is_training):
     return False
 
   examples = []
+  #i_num_cnt = 0
   for entry in input_data:
-    for paragraph in entry["paragraphs"]:
-      paragraph_text = paragraph["context"]
+    '''
+    i_num_cnt += 1
+    if (i_num_cnt > 10):
+        break;
+    '''
+    for i_num,paragraph in enumerate(entry["paragraphs"]):
+##test mode
+     # if(i_num>100): break  
+##
+      paragraph_text = paragraph["context"]#[0:2000]
+
       doc_tokens = []
       char_to_word_offset = []
       prev_is_whitespace = True
@@ -251,49 +277,67 @@ def read_squad_examples(input_file, is_training):
             doc_tokens[-1] += c
           prev_is_whitespace = False
         char_to_word_offset.append(len(doc_tokens) - 1)
+      #print(char_to_word_offset)
 
       for qa in paragraph["qas"]:
         qas_id = qa["id"]
         question_text = qa["question"]
-        start_position = None
-        end_position = None
-        orig_answer_text = None
+        start_position = []
+        end_position = []
+        orig_answer_text = []
         is_impossible = False
         if is_training:
 
           if FLAGS.version_2_with_negative:
             is_impossible = qa["is_impossible"]
-          if (len(qa["answers"]) != 1) and (not is_impossible):
-            raise ValueError(
-                "For training, each question should have exactly 1 answer.")
+##          if (len(qa["answers"]) != 1) and (not is_impossible):
+##            raise ValueError(
+##                "For training, each question should have exactly 1 answer.")
           if not is_impossible:
-            answer = qa["answers"][0]
-            orig_answer_text = answer["text"]
-            answer_offset = answer["answer_start"]
-            answer_length = len(orig_answer_text)
-            start_position = char_to_word_offset[answer_offset]
-            end_position = char_to_word_offset[answer_offset + answer_length -
-                                               1]
+## read answer list
+            answers= qa["answers"]
+            indexs=answer_index_in_document(answers,paragraph_text)
+            if not len(indexs):
+                tf.logging.warning("Could not find answer for %s \n",qa['id'])
+            for index in indexs:              
+              orig_answer_text.append(index[0])
+              answer_offset = index[1]
+              answer_length = len(index[0])
+              start_position.append(char_to_word_offset[answer_offset])
+              if(answer_offset + answer_length - 1>len(char_to_word_offset)-1):
+                print(qa['id'])
+                print('\n')
+                print(index[1])
+                print(index[0])
+                print(answer_length)
+                print(len(char_to_word_offset))
+                print('\n')
+                print(paragraph_text)
+              end_position.append(char_to_word_offset[answer_offset + answer_length - 
+                                                      1])
+##
             # Only add answers where the text can be exactly recovered from the
             # document. If this CAN'T happen it's likely due to weird Unicode
             # stuff so we will just skip the example.
             #
             # Note that this means for training mode, every example is NOT
             # guaranteed to be preserved.
-##            actual_text = " ".join(
-##                doc_tokens[start_position:(end_position + 1)])
-##            cleaned_answer_text = " ".join(
-##                tokenization.whitespace_tokenize(orig_answer_text))
+              actual_text = " ".join(
+                  doc_tokens[char_to_word_offset[answer_offset]:(char_to_word_offset[answer_offset + answer_length - 
+                                                      1] + 1)])
+              cleaned_answer_text = " ".join(
+                  tokenization.whitespace_tokenize(index[0]))
 ## not checking things above 
-            ##if actual_text.find(cleaned_answer_text) == -1:
-            ##  tf.logging.warning("Could not find answer: '%s' vs. '%s'",
-            ##                     actual_text, cleaned_answer_text)
-            ##  continue
-          else:
-            start_position = -1
-            end_position = -1
-            orig_answer_text = ""
-
+              if actual_text.lower().find(cleaned_answer_text) == -1:
+                tf.logging.warning("Could not find answer: '%s' vs. '%s'",
+                                 actual_text, cleaned_answer_text)
+                continue
+           
+##          else:
+##            start_position = -1
+##            end_position = -1
+##            orig_answer_text = ""
+            
         example = SquadExample(
             qas_id=qas_id,
             question_text=question_text,
@@ -303,7 +347,11 @@ def read_squad_examples(input_file, is_training):
             end_position=end_position,
             is_impossible=is_impossible)
         examples.append(example)
-
+##
+  print("total example:")
+  print(len(examples))
+  print("\n")
+##
   return examples
 
 
@@ -313,8 +361,14 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
   """Loads a data file into a list of `InputBatch`s."""
 
   unique_id = 1000000000
-
+  example_num=0
   for (example_index, example) in enumerate(examples):
+##
+    example_num+=1
+    if(example_num % 100==0):
+        print("processing example %d",example_num)
+        print('\n')
+##
     query_tokens = tokenizer.tokenize(example.question_text)
 
     if len(query_tokens) > max_query_length:
@@ -330,21 +384,25 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         tok_to_orig_index.append(i)
         all_doc_tokens.append(sub_token)
 
-    tok_start_position = None
-    tok_end_position = None
+    tok_start_position = []
+    tok_end_position = []
     if is_training and example.is_impossible:
       tok_start_position = -1
       tok_end_position = -1
     if is_training and not example.is_impossible:
-      tok_start_position = orig_to_tok_index[example.start_position]
-      if example.end_position < len(example.doc_tokens) - 1:
-        tok_end_position = orig_to_tok_index[example.end_position + 1] - 1
-      else:
-        tok_end_position = len(all_doc_tokens) - 1
-      (tok_start_position, tok_end_position) = _improve_answer_span(
-          all_doc_tokens, tok_start_position, tok_end_position, tokenizer,
-          example.orig_answer_text)
-
+## convert char_index to token_index 
+      for i in range(len(example.start_position)):
+        i_tok_start_position=orig_to_tok_index[example.start_position[i]]
+        if example.end_position[i] < len(example.doc_tokens) - 1:
+          i_tok_end_position= orig_to_tok_index[example.end_position[i] + 1] - 1
+        else:
+          i_tok_end_position= len(all_doc_tokens) - 1
+        (i_tok_start_position, i_tok_end_position) = _improve_answer_span(
+          all_doc_tokens, i_tok_start_position, i_tok_end_position, tokenizer,
+          example.orig_answer_text[i])
+        tok_start_position.append(i_tok_start_position)
+        tok_end_position.append(i_tok_end_position)
+##
     # The -3 accounts for [CLS], [SEP] and [SEP]
     max_tokens_for_doc = max_seq_length - len(query_tokens) - 3
 
@@ -363,7 +421,8 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
       if start_offset + length == len(all_doc_tokens):
         break
       start_offset += min(length, doc_stride)
-
+      
+    #连接文章和问题 [CLS]+ query + [SEP] + context + [SEP]，问题放在前面
     for (doc_span_index, doc_span) in enumerate(doc_spans):
       tokens = []
       token_to_orig_map = {}
@@ -412,22 +471,33 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         # we throw it out, since there is nothing to predict.
         doc_start = doc_span.start
         doc_end = doc_span.start + doc_span.length - 1
-        out_of_span = False
-        if not (tok_start_position >= doc_start and
-                tok_end_position <= doc_end):
-          out_of_span = True
+        out_of_span = True
+##find out whether a span contain any of answers
+        start_position=[]
+        end_position=[]
+        for i in range(len(tok_start_position)):           
+          if (tok_start_position[i] >= doc_start and
+                    tok_end_position[i] <= doc_end):
+            out_of_span=False
+            doc_offset = len(query_tokens) + 2
+            start_position.append(tok_start_position[i] - doc_start + doc_offset)
+            end_position.append(tok_end_position[i] - doc_start + doc_offset)
+            break
+##
         if out_of_span:
-          start_position = 0
-          end_position = 0
-        else:
-          doc_offset = len(query_tokens) + 2
-          start_position = tok_start_position - doc_start + doc_offset
-          end_position = tok_end_position - doc_start + doc_offset
-
+          continue
+          start_position = [0]
+          end_position = [0]
+          
+##        else:
+##          doc_offset = len(query_tokens) + 2
+##         start_position = tok_start_position - doc_start + doc_offset
+##          end_position = tok_end_position - doc_start + doc_offset
+          
       if is_training and example.is_impossible:
         start_position = 0
         end_position = 0
-
+      '''
       if example_index < 20:
         tf.logging.info("*** Example ***")
         tf.logging.info("unique_id: %s" % (unique_id))
@@ -453,7 +523,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
           tf.logging.info("end_position: %d" % (end_position))
           tf.logging.info(
               "answer: %s" % (tokenization.printable_text(answer_text)))
-
+      '''
       feature = InputFeatures(
           unique_id=unique_id,
           example_index=example_index,
@@ -470,9 +540,9 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
 
       # Run callback
       output_fn(feature)
-
+      
       unique_id += 1
-
+  print("input_feature done.")
 
 def _improve_answer_span(doc_tokens, input_start, input_end, tokenizer,
                          orig_answer_text):
@@ -819,11 +889,50 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
               end_index=0,
               start_logit=null_start_logit,
               end_logit=null_end_logit))
+## merge same answer
+    merged_predictions=collections.defaultdict(list)
+    for i in range(len(prelim_predictions)):
+        pred=prelim_predictions[i]
+        if pred.start_index > 0:          
+            feature=features[pred.featureindex]
+            tok_tokens = feature.tokens[pred.start_index:(pred.end_index + 1)]
+            orig_doc_start = feature.token_to_orig_map[pred.start_index]
+            orig_doc_end = feature.token_to_orig_map[pred.end_index]
+            orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
+            tok_text = " ".join(tok_tokens)
+             # De-tokenize WordPieces that have been split off.
+            tok_text = tok_text.replace(" ##", "")
+            tok_text = tok_text.replace("##", "")    
+            # Clean whitespace
+            tok_text = tok_text.strip()
+            tok_text = " ".join(tok_text.split())
+            orig_text = " ".join(orig_tokens)   
+            final_text = get_final_text(tok_text, orig_text, do_lower_case)          
+            if(merged_predictions.has_key(final_text)):
+                merged_predictions[final_text].append((pred.start_logit,pred.end_logit))
+            else:
+                merged_predictions[final_text]=[(pred.start_logit,pred.end_logit)]
+    predictions=[]
+    def get_score(score_list):
+        temp_list=[(x[0]+x[1])**2 for x in score_list]
+        return math.sqrt(sum(temp_list))
+    for key,value in merged_predictions:
+        temp_score=get_score(value)
+        predictions.append((key,value,temp_score))
+        
+    prelim_predictions=predictions=sorted(
+            predictions,
+            key=lambda x:(x[2]),
+            reverse=True)
+      
+    '''
     prelim_predictions = sorted(
         prelim_predictions,
         key=lambda x: (x.start_logit + x.end_logit),
         reverse=True)
-
+    '''
+##    
+    
     _NbestPrediction = collections.namedtuple(  # pylint: disable=invalid-name
         "NbestPrediction", ["text", "start_logit", "end_logit"])
 
@@ -832,14 +941,18 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
     for pred in prelim_predictions:
       if len(nbest) >= n_best_size:
         break
-      feature = features[pred.feature_index]
-      if pred.start_index > 0:  # this is a non-null prediction
+##      feature = features[pred.feature_index]
+##      if pred.start_index > 0:  # this is a non-null prediction
+      if True:
+##
+        '''
         tok_tokens = feature.tokens[pred.start_index:(pred.end_index + 1)]
         orig_doc_start = feature.token_to_orig_map[pred.start_index]
         orig_doc_end = feature.token_to_orig_map[pred.end_index]
         orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
         tok_text = " ".join(tok_tokens)
-
+        
+        tok_text=
         # De-tokenize WordPieces that have been split off.
         tok_text = tok_text.replace(" ##", "")
         tok_text = tok_text.replace("##", "")
@@ -850,6 +963,8 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
         orig_text = " ".join(orig_tokens)
 
         final_text = get_final_text(tok_text, orig_text, do_lower_case)
+        '''
+        final_text=pred[0]
         if final_text in seen_predictions:
           continue
 
@@ -861,8 +976,11 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
       nbest.append(
           _NbestPrediction(
               text=final_text,
-              start_logit=pred.start_logit,
-              end_logit=pred.end_logit))
+              start_logit=0.0,
+              end_logit=0.0))
+ ##             start_logit=pred.start_logit,
+ ##             end_logit=pred.end_logit))
+ 
 
     # if we didn't inlude the empty option in the n-best, inlcude it
     if FLAGS.version_2_with_negative:
@@ -1082,8 +1200,8 @@ class FeatureWriter(object):
     features["segment_ids"] = create_int_feature(feature.segment_ids)
 
     if self.is_training:
-      features["start_positions"] = create_int_feature([feature.start_position])
-      features["end_positions"] = create_int_feature([feature.end_position])
+      features["start_positions"] = create_int_feature(feature.start_position)
+      features["end_positions"] = create_int_feature(feature.end_position)
       impossible = 0
       if feature.is_impossible:
         impossible = 1
@@ -1157,10 +1275,41 @@ def main(_):
   num_train_steps = None
   num_warmup_steps = None
   if FLAGS.do_train:
+       
     train_examples = read_squad_examples(
         input_file=FLAGS.train_file, is_training=True)
+    ## Calculate the number of features first to calculate the num_train_steps
+    # We write to a temporary file to avoid storing very large constant tensors
+    # in memory.
+    
+    train_writer = FeatureWriter(
+        filename=os.path.join(FLAGS.output_dir, "train.tf_record"),
+        is_training=True)
+    convert_examples_to_features(
+        examples=train_examples,
+        tokenizer=tokenizer,
+        max_seq_length=FLAGS.max_seq_length,
+        doc_stride=FLAGS.doc_stride,
+        max_query_length=FLAGS.max_query_length,
+        is_training=True,
+        output_fn=train_writer.process_feature)
+    ## The total number of features
+    train_features = train_writer.num_features
+    ##
+    train_writer.close()
+    
+    tf.logging.info("***** Running training *****")
+    tf.logging.info("  Num orig examples = %d", len(train_examples))
+    tf.logging.info("  Num split examples = %d", train_writer.num_features)
+    tf.logging.info("  Batch size = %d", FLAGS.train_batch_size)
+    tf.logging.info("  Num steps = %d", num_train_steps)
+    
+    ##
+    #train_features = 591335
+    #
     num_train_steps = int(
-        len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
+        #len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
+        train_features / FLAGS.train_batch_size * FLAGS.num_train_epochs)
     num_warmup_steps = int(num_train_steps * FLAGS.warmup_proportion)
 
     # Pre-shuffle the input to avoid having to make a very large shuffle
@@ -1185,50 +1334,32 @@ def main(_):
       config=run_config,
       train_batch_size=FLAGS.train_batch_size,
       predict_batch_size=FLAGS.predict_batch_size)
-
+    
   if FLAGS.do_train:
-    # We write to a temporary file to avoid storing very large constant tensors
-    # in memory.
-    train_writer = FeatureWriter(
-        filename=os.path.join(FLAGS.output_dir, "train.tf_record"),
-        is_training=True)
-    convert_examples_to_features(
-        examples=train_examples,
-        tokenizer=tokenizer,
-        max_seq_length=FLAGS.max_seq_length,
-        doc_stride=FLAGS.doc_stride,
-        max_query_length=FLAGS.max_query_length,
-        is_training=True,
-        output_fn=train_writer.process_feature)
-    train_writer.close()
-
-    tf.logging.info("***** Running training *****")
-    tf.logging.info("  Num orig examples = %d", len(train_examples))
-    tf.logging.info("  Num split examples = %d", train_writer.num_features)
-    tf.logging.info("  Batch size = %d", FLAGS.train_batch_size)
-    tf.logging.info("  Num steps = %d", num_train_steps)
-    del train_examples
+    #del train_examples
 
     train_input_fn = input_fn_builder(
-        input_file=train_writer.filename,
+        input_file=os.path.join(FLAGS.output_dir, "train.tf_record"),
         seq_length=FLAGS.max_seq_length,
         is_training=True,
         drop_remainder=True)
+    
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
 
   if FLAGS.do_predict:
+
     eval_examples = read_squad_examples(
         input_file=FLAGS.predict_file, is_training=False)
-
+    
     eval_writer = FeatureWriter(
         filename=os.path.join(FLAGS.output_dir, "eval.tf_record"),
         is_training=False)
     eval_features = []
-
+    
     def append_feature(feature):
       eval_features.append(feature)
       eval_writer.process_feature(feature)
-
+      
     convert_examples_to_features(
         examples=eval_examples,
         tokenizer=tokenizer,
@@ -1238,16 +1369,42 @@ def main(_):
         is_training=False,
         output_fn=append_feature)
     eval_writer.close()
-
+    
     tf.logging.info("***** Running predictions *****")
     tf.logging.info("  Num orig examples = %d", len(eval_examples))
     tf.logging.info("  Num split examples = %d", len(eval_features))
     tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
+## write features to file
+    tf.logging.info("Writing features")
+    json_file=os.path.join(FLAGS.output_dir, "test_features.json")
+    with open(json_file, 'r') as outfile:
+        all_features=[]
+        for temp_feature in eval_features:
+            feature_dict={
+                    "tokens":temp_feature.tokens,
+                    "token_to_orig_map":temp_feature.token_to_orig_map
+                    }
+            all_features.append(feature_dict)
+        json.dump(all_features, outfile, indent=4, sort_keys=True, ensure_ascii=False)
+    
+## read features from file  
+    eval_features=[]
+    
+    with io.open(json_file, "r",encoding='utf8') as reader:
+        input_data = json.load(reader)
+        for entry in input_data:
+            InputFeatures(temp_feature)
+            temp_feature.tokens=entry["tokens"]
+            temp_feature.token_to_orig_map==entry["token_to_orig_map"]
+            eval_features.append(temp_feature)
 
+
+##
     all_results = []
 
     predict_input_fn = input_fn_builder(
-        input_file=eval_writer.filename,
+##        input_file=eval_writer.filename,
+        input_file=os.path.join(FLAGS.output_dir, "eval.tf_record"),
         seq_length=FLAGS.max_seq_length,
         is_training=False,
         drop_remainder=False)
