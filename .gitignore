@@ -114,3 +114,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Data
+triviaqa/qa/
+triviaqa/evidence/
+
+# .json
+*.json
