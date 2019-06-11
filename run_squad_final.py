@@ -716,7 +716,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         one_hot_positions = tf.one_hot(
             positions, depth=seq_length, dtype=tf.float32)
         log_probs = tf.nn.softmax(logits, axis=-1)
-        loss = -tf.log(tf.reduce_mean(
+        loss = -tf.reduce_mean(tf.log(
             tf.reduce_sum(one_hot_positions * log_probs, axis=-1)))
         return loss
 
@@ -887,50 +887,11 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
               end_index=0,
               start_logit=null_start_logit,
               end_logit=null_end_logit))
-## merge same answer
-    merged_predictions=collections.defaultdict(list)
-    for i in range(len(prelim_predictions)):
-        pred=prelim_predictions[i]
-        if pred.start_index > 0:          
-            feature=features[pred.featureindex]
-            tok_tokens = feature.tokens[pred.start_index:(pred.end_index + 1)]
-            orig_doc_start = feature.token_to_orig_map[pred.start_index]
-            orig_doc_end = feature.token_to_orig_map[pred.end_index]
-            orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
-            tok_text = " ".join(tok_tokens)
-             # De-tokenize WordPieces that have been split off.
-            tok_text = tok_text.replace(" ##", "")
-            tok_text = tok_text.replace("##", "")    
-            # Clean whitespace
-            tok_text = tok_text.strip()
-            tok_text = " ".join(tok_text.split())
-            orig_text = " ".join(orig_tokens)   
-            final_text = get_final_text(tok_text, orig_text, do_lower_case)          
-            if(merged_predictions.has_key(final_text)):
-                merged_predictions[final_text].append((pred.start_logit,pred.end_logit))
-            else:
-                merged_predictions[final_text]=[(pred.start_logit,pred.end_logit)]
-    predictions=[]
-    def get_score(score_list):
-        temp_list=[(x[0]+x[1])**2 for x in score_list]
-        return math.sqrt(sum(temp_list))
-    for key,value in merged_predictions:
-        temp_score=get_score(value)
-        predictions.append((key,value,temp_score))
-        
-    prelim_predictions=predictions=sorted(
-            predictions,
-            key=lambda x:(x[2]),
-            reverse=True)
-      
-    '''
     prelim_predictions = sorted(
         prelim_predictions,
         key=lambda x: (x.start_logit + x.end_logit),
         reverse=True)
-    '''
-##    
-    
+
     _NbestPrediction = collections.namedtuple(  # pylint: disable=invalid-name
         "NbestPrediction", ["text", "start_logit", "end_logit"])
 
@@ -939,18 +900,14 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
     for pred in prelim_predictions:
       if len(nbest) >= n_best_size:
         break
-##      feature = features[pred.feature_index]
-##      if pred.start_index > 0:  # this is a non-null prediction
-      if True:
-##
-        '''
+      feature = features[pred.feature_index]
+      if pred.start_index > 0:  # this is a non-null prediction
         tok_tokens = feature.tokens[pred.start_index:(pred.end_index + 1)]
         orig_doc_start = feature.token_to_orig_map[pred.start_index]
         orig_doc_end = feature.token_to_orig_map[pred.end_index]
         orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
         tok_text = " ".join(tok_tokens)
-        
-        tok_text=
+
         # De-tokenize WordPieces that have been split off.
         tok_text = tok_text.replace(" ##", "")
         tok_text = tok_text.replace("##", "")
@@ -961,8 +918,6 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
         orig_text = " ".join(orig_tokens)
 
         final_text = get_final_text(tok_text, orig_text, do_lower_case)
-        '''
-        final_text=pred[0]
         if final_text in seen_predictions:
           continue
 
@@ -974,11 +929,8 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
       nbest.append(
           _NbestPrediction(
               text=final_text,
-              start_logit=0.0,
-              end_logit=0.0))
- ##             start_logit=pred.start_logit,
- ##             end_logit=pred.end_logit))
- 
+              start_logit=pred.start_logit,
+              end_logit=pred.end_logit))
 
     # if we didn't inlude the empty option in the n-best, inlcude it
     if FLAGS.version_2_with_negative:
@@ -1040,6 +992,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
   if FLAGS.version_2_with_negative:
     with tf.gfile.GFile(output_null_log_odds_file, "w") as writer:
       writer.write(json.dumps(scores_diff_json, indent=4) + "\n")
+
 
 
 def get_final_text(pred_text, orig_text, do_lower_case):
