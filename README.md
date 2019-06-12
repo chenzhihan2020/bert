@@ -2,11 +2,11 @@
 Implementation of our ideas:
 1. Paragraph selection (Answer-based filtering & TF-IDF cosine similarity):
 convert_triviaqa_to_squad_format/my_convert_to_squad_format.py
-2. Data Augmentation:
+2. Data Augmentation: \
 old_versions/run_squad_v1.1.py
-3. Handling multiple answers:
+3. Handling multiple answers: \
 old_versions/run_squad_v3.0.py
-4. Combining predictions:
+4. Combining predictions: \
 old_versions/run_squad_test_v3.0.py
 
 
@@ -25,9 +25,10 @@ python -m my_convert_to_squad_format \
 
 
 
-3. Run the bert model:
-python version: 2.7
-Run the following command for training the model:
+3. Run the bert model: \
+python version: 2.7 \
+Run the following command for training the model. \
+Replace the information during <need to be replaced>, and remove the <>: \
 python run_squad.py \
 --vocab_file=<path to the vocab file: i.g. gs://tpu0/bert/uncased_L-12_H-768_A-12/vocab.txt> \
 --bert_config_file=<path to the vocab file: i.g. gs://tpu0/bert/uncased_L-12_H-768_A-12/bert_config.json> \
@@ -46,9 +47,10 @@ python run_squad.py \
 --use_tpu=True \
 --tpu_name=<TPU name, i.g. haihua-sysu>
 
-Replace the information during <need to be replaced>, and remove the <>
 
-Run the following command for testing (Prediction):
+
+Run the following command for testing (Prediction): \
+Replace the information during <need to be replaced>, and remove the <> \
 python run_squad.py \
 --vocab_file=<path to the vocab file: i.g. gs://tpu0/bert/uncased_L-12_H-768_A-12/vocab.txt> \
 --bert_config_file=<path to the vocab file: i.g. gs://tpu0/bert/uncased_L-12_H-768_A-12/bert_config.json> \
@@ -67,4 +69,3 @@ python run_squad.py \
 --use_tpu=True \
 --tpu_name=<TPU name, i.g. haihua-sysu>
 
-Replace the information during <need to be replaced>, and remove the <>
