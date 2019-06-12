@@ -11,19 +11,19 @@ old_versions/run_squad_test_v3.0.py
 
 
 Running command:
-1. TriviaQA: 
+1. TriviaQA: \
 Download the dataset: http://nlp.cs.washington.edu/triviaqa/
 
-2. Convert the triviaqa data to the squad format:
-python version: 3.7
-enter into convert_triviaqa_to_squad_format file
-Run the following command:
+2. Convert the triviaqa data to the squad format: \
+python version: 3.7 \
+enter into convert_triviaqa_to_squad_format file \
+Run the following command. Replace the information during <need to be replaced>, and remove the <>: \
 python -m my_convert_to_squad_format \
 --triviaqa_file <path to file you want to convert: i.g. qa/wikipedia-train.json> \
 --squad_file <path to file you want to save the converted file: i.g. converted_wikipedia-train.json> \
 --wikipedia_dir <path to dataset: i.g. ../evidence/wikipedia/>
 
-Replace the information during <need to be replaced>, and remove the <>
+
 
 3. Run the bert model:
 python version: 2.7
