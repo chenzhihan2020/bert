@@ -10,11 +10,12 @@ old_versions/run_squad_v3.0.py
 old_versions/run_squad_test_v3.0.py
 
 
-Running command:
-1. TriviaQA: \
+Dataset:
+TriviaQA: \
 Download the dataset: http://nlp.cs.washington.edu/triviaqa/
 
-2. Convert the triviaqa data to the squad format: \
+Running command:
+1. Convert the triviaqa data to the squad format: \
 python version: 3.7 \
 enter into convert_triviaqa_to_squad_format file \
 Run the following command. Replace the information during <need to be replaced>, and remove the <>: \
@@ -25,7 +26,7 @@ python -m my_convert_to_squad_format \
 
 
 
-3. Training the model \
+2. Training the model \
 python version: 2.7 \
 Replace the information during <need to be replaced>, and remove the <>: \
 python run_squad.py \
@@ -48,7 +49,7 @@ python run_squad.py \
 
 
 
-4. Testing (Prediction): \
+3. Testing (Prediction): \
 python version: 2.7 \
 Replace the information during <need to be replaced>, and remove the <> \
 python run_squad.py \
