@@ -1,4 +1,16 @@
 # BERT
+Implementation of our ideas:
+Paragraph selection (Answer-based filtering & TF-IDF cosine similarity):
+convert_triviaqa_to_squad_format/my_convert_to_squad_format.py
+Data Augmentation:
+old_versions/run_squad_v1.1.py
+Handling multiple answers:
+old_versions/run_squad_v3.0.py
+Combining predictions:
+old_versions/run_squad_test_v3.0.py
+
+
+Running command:
 1. TriviaQA: 
 Download the dataset: http://nlp.cs.washington.edu/triviaqa/
 
@@ -6,7 +18,12 @@ Download the dataset: http://nlp.cs.washington.edu/triviaqa/
 python version: 3.7
 enter into convert_triviaqa_to_squad_format file
 Run the following command:
-python -m utils.my_convert_to_squad_format --triviaqa_file qa/wikipedia-train.json --squad_file converted_wikipedia-train.json --wikipedia_dir ../evidence/wikipedia/
+python -m my_convert_to_squad_format \
+--triviaqa_file <path to file you want to convert: i.g. qa/wikipedia-train.json> \
+--squad_file <path to file you want to save the converted file: i.g. converted_wikipedia-train.json> \
+--wikipedia_dir <path to dataset: i.g. ../evidence/wikipedia/>
+
+Replace the information during <need to be replaced>, and remove the <>
 
 3. Run the bert model:
 python version: 2.7
