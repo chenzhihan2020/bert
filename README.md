@@ -1,12 +1,12 @@
 # BERT
 Implementation of our ideas:
-Paragraph selection (Answer-based filtering & TF-IDF cosine similarity):
+1. Paragraph selection (Answer-based filtering & TF-IDF cosine similarity):
 convert_triviaqa_to_squad_format/my_convert_to_squad_format.py
-Data Augmentation:
+2. Data Augmentation:
 old_versions/run_squad_v1.1.py
-Handling multiple answers:
+3. Handling multiple answers:
 old_versions/run_squad_v3.0.py
-Combining predictions:
+4. Combining predictions:
 old_versions/run_squad_test_v3.0.py
 
 
