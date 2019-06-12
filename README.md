@@ -25,10 +25,8 @@ python -m my_convert_to_squad_format \
 
 
 
-3. Run the bert model: \
+3. Training the model \
 python version: 2.7 \
-
-3.1 Run the following command for training the model. \
 Replace the information during <need to be replaced>, and remove the <>: \
 python run_squad.py \
 --vocab_file=<path to the vocab file: e.g gs://tpu0/bert/uncased_L-12_H-768_A-12/vocab.txt> \
@@ -50,7 +48,8 @@ python run_squad.py \
 
 
 
-3.2 Run the following command for testing (Prediction): \
+4. Testing (Prediction): \
+python version: 2.7 \
 Replace the information during <need to be replaced>, and remove the <> \
 python run_squad.py \
 --vocab_file=<path to the vocab file: e.g gs://tpu0/bert/uncased_L-12_H-768_A-12/vocab.txt> \
